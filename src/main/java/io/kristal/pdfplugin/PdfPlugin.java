@@ -126,12 +126,11 @@ public class PdfPlugin extends CobaltAbstractPlugin {
                 // setting up PDF plugin
                 CobaltFragment fragment = webContainer.getFragment();
                 // parse JSON from web side
-                JSONArray data = message.getJSONObject(JS_TOKEN_DATA).getJSONArray(JS_TOKEN_DATA);
-                if (data == null) {
+                JSONObject pdfData = message.getJSONObject(JS_TOKEN_DATA);
+                if (pdfData == null) {
                     Log.e(TAG, "Fatal: Parsed data is null, check your javascript syntax.");
                     return;
                 }
-                JSONObject pdfData = data.getJSONObject(0);
                 // get pdf source and associated url/path
                 inputPdfPath = pdfData.getString(JS_TOKEN_PATH);
                 String inputPdfSource = pdfData.getString(JS_TOKEN_SOURCE);
