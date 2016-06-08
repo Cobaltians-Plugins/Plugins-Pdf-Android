@@ -7,13 +7,16 @@ import android.graphics.Bitmap;
 import android.graphics.pdf.PdfRenderer;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.Toast;
+
+import org.cobaltians.cobalt.Cobalt;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +32,9 @@ import io.kristal.pdfplugin.R;
 public class PdfContainerFragment extends Fragment {
     private ParcelFileDescriptor mFileDescriptor; // File descriptor of the PDF
     private PdfRenderer.Page mCurrentPage;
+    private float x1;
+
+    boolean startlongpress = false;
 
     /**
      * {@link android.graphics.pdf.PdfRenderer} to render the PDF.
@@ -37,7 +43,7 @@ public class PdfContainerFragment extends Fragment {
     /**
      * {@link android.widget.ImageView} that shows a PDF page as a {@link android.graphics.Bitmap}
      */
-    private ImageView mImageView;
+    private com.polites.android.GestureImageView mImageView;
 
     public PdfContainerFragment() {
     }
@@ -52,9 +58,47 @@ public class PdfContainerFragment extends Fragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         // Retain view references.
-        mImageView = (ImageView) view.findViewById(R.id.image);
-        // open pdf
-        showPage(0); // Show the first page by default.
+        mImageView = (com.polites.android.GestureImageView) view.findViewById(R.id.image);
+        // Open the first(0) page of the PDF.
+        showPage(0);
+        /** Tap listener */
+        // Thread needed to check the tap duration
+        final Handler handler = new Handler();
+        final Runnable mLongPressed = new Runnable() {
+            public void run() {
+                startlongpress = true; // recording a long press
+            }
+        };
+        // Set touch listener to switch to prev/next page
+        mImageView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                final int firstTier = mImageView.getWidth() / 3;
+                final int secondTier = (mImageView.getWidth() / 3) * 2;
+                if(event.getAction() == MotionEvent.ACTION_DOWN) {
+                    handler.removeCallbacks(mLongPressed); // reset long press thread
+                }
+                if ((event.getAction() == MotionEvent.ACTION_MOVE) || (event.getAction() == MotionEvent.ACTION_UP)) {
+                    x1 = event.getX();
+                    if (startlongpress) {
+                        // do switch page
+                        if (x1 > 0 && x1 < firstTier) { // tapped on left side
+                            prevPdfPage();
+                            startlongpress = false;
+                        } else if (x1 > firstTier && x1 < secondTier) { // tapped on middle
+                            // do nothing: let gesture-imageView do this part of the job (drag && zoom)
+                        } else if (x1 > secondTier && x1 < mImageView.getWidth()) { // tapped on right side
+                            nextPdfPage();
+                            startlongpress = false;
+                        } else {
+                            if (Cobalt.DEBUG) Log.d(PdfPlugin.TAG, "Dropped a tap with unknown location.");
+                        }
+                    }
+                    handler.postDelayed(mLongPressed, 1000);
+                }
+                return false;
+            }
+        });
     }
 
     @Override
@@ -130,7 +174,7 @@ public class PdfContainerFragment extends Fragment {
     /**
      * Navigate PDF to the previous page
      */
-    public void nextPdfPage() {
+    private void nextPdfPage() {
         int next = mCurrentPage.getIndex() + 1;
         if (next < getPageCount() && next >= 0) {
             showPage(next);
@@ -140,7 +184,7 @@ public class PdfContainerFragment extends Fragment {
     /**
      * Navigate PDF to the previous page
      */
-    public void prevPdfPage() {
+    private void prevPdfPage() {
         int prev = mCurrentPage.getIndex() - 1;
         if (prev < getPageCount() && prev >= 0) {
             showPage(prev);

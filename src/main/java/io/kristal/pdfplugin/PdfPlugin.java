@@ -42,7 +42,6 @@ import org.cobaltians.cobalt.Cobalt;
 import org.cobaltians.cobalt.fragments.CobaltFragment;
 import org.cobaltians.cobalt.plugin.CobaltAbstractPlugin;
 import org.cobaltians.cobalt.plugin.CobaltPluginWebContainer;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -354,12 +353,12 @@ public class PdfPlugin extends CobaltAbstractPlugin {
             if (result != null) {
                 if (Cobalt.DEBUG) Log.d(PdfPlugin.TAG, "File downloaded length " + result);
                 Toast.makeText(PdfPlugin.currentFragment.getContext(), "Downloading completed in " + PdfPlugin.inputPdfPath, Toast.LENGTH_LONG).show();
+                // finally, open document
+                PdfIntent();
             } else {
                 Log.e(PdfPlugin.TAG, "Download error: No internet connection.");
                 Toast.makeText(PdfPlugin.currentFragment.getContext(), "Download error: No internet connection.", Toast.LENGTH_LONG).show();
             }
-            // finally, open document
-            PdfIntent();
         }
     }
 }
