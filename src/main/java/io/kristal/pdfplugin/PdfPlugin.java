@@ -80,9 +80,6 @@ public class PdfPlugin extends CobaltAbstractPlugin {
     // path to the pdf, can be a folder from assets or an url
     public static String inputPdfPath;
 
-    // used to detail the callback event
-    private String callbackToString;
-
     /**************************************************************************************
      * CONSTANTS MEMBERS
      **************************************************************************************/
@@ -121,6 +118,7 @@ public class PdfPlugin extends CobaltAbstractPlugin {
 
         try {
             String action = message.getString(Cobalt.kJSAction);
+            mPluginName = message.getString(Cobalt.kJSPluginName);
             if (action.equals(PDF_APP)) {
                 // setting up PDF plugin
                 CobaltFragment fragment = webContainer.getFragment();
@@ -167,10 +165,7 @@ public class PdfPlugin extends CobaltAbstractPlugin {
                         Log.e(TAG, "Invalid source " + inputPdfSource + ". Correct values are <url> or <local>");
                         return;
                 }
-                // send callback
-                JSONObject callback = new JSONObject();
-                callback.put(TAG, callbackToString);
-                fragment.sendCallback(message.getString(Cobalt.kJSCallback), callback);
+
             } else if (Cobalt.DEBUG)
                 Log.e(TAG, "onMessage: invalid action " + action + " in message " + message.toString() + ".");
         } catch (JSONException exception) {
@@ -200,7 +195,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
      */
     private boolean openPdfInApp() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            callbackToString = "PDF opened with the in-app PDF Renderer.";
+            if (Cobalt.DEBUG)
+                Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with the in-app PDF Renderer.");
             Intent intent = new Intent(currentActivity, FullScreenActivity.class);
             currentActivity.startActivity(intent);
             return true;
@@ -221,7 +217,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
         List list = packageManager.queryIntentActivities(testIntent, PackageManager.MATCH_DEFAULT_ONLY);
         if (list.size() > 0) {
             // at least 1 pdf application exist
-            callbackToString = "PDF opened with a local PDF Reader app.";
+            if (Cobalt.DEBUG)
+                Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with a local PDF Reader app.");
             Intent intent = new Intent();
             intent.setAction(Intent.ACTION_VIEW);
             Uri uri = Uri.fromFile(new File(downloadedPdfPath + pdfFileName));
@@ -238,7 +235,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
      * Open with a browser intent with google drive and pdf url
      */
     private void openPdfInBrowser() {
-        callbackToString = "PDF opened with a browser intent.";
+        if (Cobalt.DEBUG)
+            Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with a browser intent.");
         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://drive.google.com/viewer?url=" + inputPdfPath));
         currentActivity.startActivity(browserIntent);
     }
@@ -302,7 +300,7 @@ public class PdfPlugin extends CobaltAbstractPlugin {
                 URL mUrl = new URL(PdfPlugin.inputPdfPath);
                 urlConnection = (HttpURLConnection) mUrl.openConnection();
                 urlConnection.setRequestMethod("GET");
-                urlConnection.setConnectTimeout (5000) ;
+                // urlConnection.setConnectTimeout (5000) ;
                 urlConnection.connect();
                 // create file
                 File file = new File(PdfPlugin.downloadedPdfPath, PdfPlugin.pdfFileName);
