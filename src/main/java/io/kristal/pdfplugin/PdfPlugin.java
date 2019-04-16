@@ -118,7 +118,6 @@ public class PdfPlugin extends CobaltAbstractPlugin {
 
         try {
             String action = message.getString(Cobalt.kJSAction);
-            mPluginName = message.getString(Cobalt.kJSPluginName);
             if (action.equals(PDF_APP)) {
                 // setting up PDF plugin
                 CobaltFragment fragment = webContainer.getFragment();
@@ -300,7 +299,7 @@ public class PdfPlugin extends CobaltAbstractPlugin {
                 URL mUrl = new URL(PdfPlugin.inputPdfPath);
                 urlConnection = (HttpURLConnection) mUrl.openConnection();
                 urlConnection.setRequestMethod("GET");
-                // urlConnection.setConnectTimeout (5000) ;
+                urlConnection.setConnectTimeout (5000) ;
                 urlConnection.connect();
                 // create file
                 File file = new File(PdfPlugin.downloadedPdfPath, PdfPlugin.pdfFileName);
