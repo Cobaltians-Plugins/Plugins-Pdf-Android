@@ -34,6 +34,8 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 import android.os.PowerManager;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.webkit.URLUtil;
 import android.widget.Toast;
@@ -80,14 +82,10 @@ public class PdfPlugin extends CobaltAbstractPlugin {
     // path to the pdf, can be a folder from assets or an url
     public static String inputPdfPath;
 
-    // used to detail the callback event
-    private String callbackToString;
-
     /**************************************************************************************
      * CONSTANTS MEMBERS
      **************************************************************************************/
-
-    public static final String JS_TOKEN_DATA = "data";
+    
     public static final String JS_TOKEN_PATH = "path";
     public static final String JS_TOKEN_SOURCE = "source";
 
@@ -102,15 +100,21 @@ public class PdfPlugin extends CobaltAbstractPlugin {
      * CONSTRUCTORS
      **************************************************************************************/
 
-    public static CobaltAbstractPlugin getInstance(CobaltPluginWebContainer webContainer) {
-        if (sInstance == null) sInstance = new PdfPlugin();
-        sInstance.addWebContainer(webContainer);
+    public static CobaltAbstractPlugin getInstance()
+    {
+        if (sInstance == null)
+        {
+            sInstance = new PdfPlugin();
+        }
         return sInstance;
     }
-
+    
     @Override
-    public void onMessage(CobaltPluginWebContainer webContainer, JSONObject message) {
-        if (Cobalt.DEBUG) Log.d(TAG, "onMessage called with message: " + message.toString());
+    public void onMessage(@NonNull CobaltPluginWebContainer webContainer, @NonNull String action,
+            @Nullable JSONObject data, @Nullable String callbackChannel)
+    {
+        //if (Cobalt.DEBUG) Log.d(TAG, "onMessage called with message: " + message.toString());
+        // TODO: check nullability
         currentFragment = webContainer.getFragment();
         currentContext = currentFragment.getContext();
         currentActivity = currentFragment.getActivity();
@@ -118,66 +122,67 @@ public class PdfPlugin extends CobaltAbstractPlugin {
         // PDF storage configuration
         downloadedPdfPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + File.separator + "PDFs/";
         pdfFileName = "default.pdf";
-
-        try {
-            String action = message.getString(Cobalt.kJSAction);
-            if (action.equals(PDF_APP)) {
-                // setting up PDF plugin
-                CobaltFragment fragment = webContainer.getFragment();
-                // parse JSON from web side
-                JSONObject pdfData = message.getJSONObject(JS_TOKEN_DATA);
-                if (pdfData == null) {
-                    Log.e(TAG, "Fatal: Parsed data is null, check your javascript syntax.");
-                    return;
-                }
-                // get pdf source and associated url/path
-                inputPdfPath = pdfData.getString(JS_TOKEN_PATH);
-                String inputPdfSource = pdfData.getString(JS_TOKEN_SOURCE);
-                // create folder for pdf storage
-                Tools.createFolder(PdfPlugin.downloadedPdfPath);
-                // open pdf according to source
-                switch (inputPdfSource) {
-                    case "url":
-                        pdfFileName = URLUtil.guessFileName(inputPdfPath, null, null);
-                        // Verify that inputPdfPath start with the common protocol key
-                        if (!inputPdfPath.startsWith("http://") && !inputPdfPath.startsWith("https://")) {
-                            inputPdfPath = "http://" + inputPdfPath;
-                        }
-                        // download and open pdf
-                        File file = new File(downloadedPdfPath, pdfFileName);
-                        if (file.exists()) { // no need to download a new one
-                            PdfIntent();
-                        } else {
-                            PdfPlugin.currentFragment.getActivity().runOnUiThread(new Runnable() {
-                                public void run() {
-                                    new DownloadFileAsync().execute(inputPdfPath);
-                                }
-                            });
-                        }
-                        break;
-                    case "local":
-                        // keep only the last word to find the file name
-                        int indexOfToken = inputPdfPath.indexOf('/') + 1; // +1 because of '/'
-                        pdfFileName = inputPdfPath.substring(indexOfToken, inputPdfPath.length());
-                        // copy & store it into phone storage
-                        copyReadAssets();
-                        PdfIntent();
-                        break;
-                    default:
-                        Log.e(TAG, "Invalid source " + inputPdfSource + ". Correct values are <url> or <local>");
-                        return;
-                }
-                // send callback
-                JSONObject callback = new JSONObject();
-                callback.put(TAG, callbackToString);
-                fragment.sendCallback(message.getString(Cobalt.kJSCallback), callback);
-            } else if (Cobalt.DEBUG)
-                Log.e(TAG, "onMessage: invalid action " + action + " in message " + message.toString() + ".");
-        } catch (JSONException exception) {
-            if (Cobalt.DEBUG) {
-                Log.d(TAG, "onMessage: missing action key in message " + message.toString() + ".");
-                exception.printStackTrace();
+        
+        if (action.equals(PDF_APP))
+        {
+            // setting up PDF plugin
+            // parse JSON from web side
+            if (data == null)
+            {
+                Log.e(TAG, "Fatal: parsed data is null, check your javascript syntax.");
+                return;
             }
+            // get pdf source and associated url/path
+            String inputPdfSource;
+            try
+            {
+                inputPdfPath = data.getString(JS_TOKEN_PATH);
+                inputPdfSource = data.getString(JS_TOKEN_SOURCE);
+            }
+            catch(JSONException exception)
+            {
+                Log.e(TAG, "onMessage: data.path and/or data.source are missing or not a string");
+                exception.printStackTrace();
+                return;
+            }
+            // create folder for pdf storage
+            Tools.createFolder(PdfPlugin.downloadedPdfPath);
+            // open pdf according to source
+            switch (inputPdfSource) {
+                case "url":
+                    pdfFileName = URLUtil.guessFileName(inputPdfPath, null, null);
+                    // Verify that inputPdfPath start with the common protocol key
+                    if (!inputPdfPath.startsWith("http://") && !inputPdfPath.startsWith("https://")) {
+                        inputPdfPath = "http://" + inputPdfPath;
+                    }
+                    // download and open pdf
+                    File file = new File(downloadedPdfPath, pdfFileName);
+                    if (file.exists()) { // no need to download a new one
+                        PdfIntent();
+                    } else {
+                        PdfPlugin.currentFragment.getActivity().runOnUiThread(new Runnable() {
+                            public void run() {
+                                new DownloadFileAsync().execute(inputPdfPath);
+                            }
+                        });
+                    }
+                    break;
+                case "local":
+                    // keep only the last word to find the file name
+                    int indexOfToken = inputPdfPath.indexOf('/') + 1; // +1 because of '/'
+                    pdfFileName = inputPdfPath.substring(indexOfToken, inputPdfPath.length());
+                    // copy & store it into phone storage
+                    copyReadAssets();
+                    PdfIntent();
+                    break;
+                default:
+                    Log.e(TAG, "Invalid source " + inputPdfSource + ". Correct values are <url> or <local>");
+                    break;
+            }
+        }
+        else if (Cobalt.DEBUG)
+        {
+            Log.e(TAG, "onMessage: invalid action " + action);
         }
     }
 
@@ -200,7 +205,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
      */
     private boolean openPdfInApp() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            callbackToString = "PDF opened with the in-app PDF Renderer.";
+            if (Cobalt.DEBUG)
+                Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with the in-app PDF Renderer.");
             Intent intent = new Intent(currentActivity, FullScreenActivity.class);
             currentActivity.startActivity(intent);
             return true;
@@ -221,7 +227,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
         List list = packageManager.queryIntentActivities(testIntent, PackageManager.MATCH_DEFAULT_ONLY);
         if (list.size() > 0) {
             // at least 1 pdf application exist
-            callbackToString = "PDF opened with a local PDF Reader app.";
+            if (Cobalt.DEBUG)
+                Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with a local PDF Reader app.");
             Intent intent = new Intent();
             intent.setAction(Intent.ACTION_VIEW);
             Uri uri = Uri.fromFile(new File(downloadedPdfPath + pdfFileName));
@@ -238,7 +245,8 @@ public class PdfPlugin extends CobaltAbstractPlugin {
      * Open with a browser intent with google drive and pdf url
      */
     private void openPdfInBrowser() {
-        callbackToString = "PDF opened with a browser intent.";
+        if (Cobalt.DEBUG)
+            Log.d(PdfPlugin.TAG, PdfPlugin.pdfFileName + " PDF opened with a browser intent.");
         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://drive.google.com/viewer?url=" + inputPdfPath));
         currentActivity.startActivity(browserIntent);
     }
@@ -265,7 +273,7 @@ public class PdfPlugin extends CobaltAbstractPlugin {
             Log.e(PdfPlugin.TAG, e.getMessage());
         }
     }
-
+    
     /**
      * DownloadFileAsync asynchronous thread
      * downloading a file from a direct url
